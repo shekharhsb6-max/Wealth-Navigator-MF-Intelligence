@@ -1,0 +1,14 @@
+YOUR EXISTING LAUNCHER
+
+If your current index.html has an MF card, point it to the deployed Apps Script URL.
+
+Example:
+
+<a href="YOUR_APPS_SCRIPT_WEB_APP_URL" class="card">
+  <h3>📊 MF Intelligence</h3>
+  <p>Search funds • NAV • analytics • SIP</p>
+</a>
+
+Do not put Google service-account credentials in index.html.
+
+If your launcher is hosted on GitHub Pages, use the Apps Script Web App URL only as the destination. The MF application itself uses google.script.run inside Apps Script.
