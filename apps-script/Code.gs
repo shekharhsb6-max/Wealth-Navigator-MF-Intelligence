@@ -256,4 +256,3 @@ function simulateSIP(schemeCode, monthlyAmount) {
     gain_percent: invested ? gain/invested*100 : null
   };
 }
-
