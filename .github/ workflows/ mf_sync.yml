@@ -28,13 +28,13 @@ jobs:
       - name: Sync selected MF
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'single' }}
         env:
-          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GGOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_CREDENTIALS }}OOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+         
         run: python python/run_mf_sync.py --scheme "${{ inputs.scheme_code }}"
 
       - name: Sync MF watchlist
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'watchlist') }}
         env:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_CREDENTIALS }}
         run: python python/sync_watchlist.py
