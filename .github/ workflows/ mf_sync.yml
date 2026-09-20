@@ -7,35 +7,25 @@ on:
         description: "single or watchlist"
         required: true
         default: "watchlist"
+        type: choice
+        options:
+          - single
+          - watchlist
       scheme_code:
-        description: "Required only when mode=single"
+        description: "Required when mode=single"
         required: false
-  schedule:
-    - cron: "30 12 * * 1-5"
+        type: string
 
 jobs:
-  sync:
+  test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - run: pip install -r requirements.txt
-
-      - name: Sync selected MF
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'single' }}
-        env:
-            GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_CREDENTIALS }}
-         
-        run: python python/run_mf_sync.py --scheme "${{ inputs.scheme_code }}"
-
-      - name: Sync MF watchlist
-        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'watchlist') }}
-        env:
-          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-        GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_CREDENTIALS }}
-        run: python python/sync_watchlist.py
+      - name: Test workflow
+        run: |
+          echo "Wealth Navigator MF Sync workflow is working"
+          echo "Mode: ${{ inputs.mode }}"
+          echo "Scheme: ${{ inputs.scheme_code }}"
