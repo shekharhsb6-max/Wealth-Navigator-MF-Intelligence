@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#0b1020; --card:#151c32; --text:#f5f7ff; --muted:#9da8c2; --accent:#c83cff; --accent2:#ff9b2f; --line:#29324d; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:auto;padding:18px}
+    .hero{padding:24px;border-radius:28px;background:linear-gradient(135deg,#6d24d9,#d62fc8,#ff9d28);box-shadow:0 15px 40px #0006}
+    .pill{display:inline-block;padding:9px 15px;border-radius:30px;background:#ffffff22}
+    h1{font-size:34px;margin:18px 0 8px}.sub{color:#fffddf;line-height:1.5}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:18px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px}
+    input,button,select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0e1427;color:var(--text);margin-top:8px}
+    button{background:linear-gradient(90deg,var(--accent),var(--accent2));border:0;font-weight:700;cursor:pointer}
+    .results button{background:#202a45;text-align:left}
+    .metric{font-size:24px;font-weight:700}.muted{color:var(--muted);font-size:13px}
+    .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+    .metricbox{padding:12px;border-radius:14px;background:#0e1427}
+    .ok{color:#6ef2a3}.warn{color:#ffd166}
+    #chart{width:100%;height:260px;background:#0e1427;border-radius:14px;margin-top:12px}
+    .small{font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <span class="pill">🌱 Plan · Track · Invest · Grow</span>
+    <h1>Mutual Fund Intelligence</h1>
+    <div class="sub">MFAPI-powered research, NAV history, analytics, watchlist and SIP analysis — inside Wealth Navigator.</div>
+  </section>
+
+  <div class="grid">
+    <div class="card">
+      <h2>🔎 Search Fund</h2>
+      <input id="q" placeholder="e.g. HDFC Flexi Cap">
+      <button onclick="searchFunds()">SEARCH MFAPI</button>
+      <div id="results" class="results"></div>
+    </div>
+
+    <div class="card">
+      <h2>📊 Selected Fund</h2>
+      <div id="selected" class="muted">Search and select a scheme.</div>
+      <button onclick="syncSelected()">SYNC TO GOOGLE SHEETS</button>
+      <button onclick="addWatch()">ADD TO WATCHLIST</button>
+    </div>
+
+    <div class="card">
+      <h2>🧮 SIP Simulator</h2>
+      <input id="sipAmount" type="number" placeholder="Monthly SIP ₹">
+      <button onclick="runSIP()">CALCULATE HISTORICAL SIP</button>
+      <div id="sipResult" class="muted"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>📈 Analytics</h2>
+    <div id="metrics" class="metrics"></div>
+    <canvas id="chart"></canvas>
+  </div>
+</div>
+
+<script>
+let selected = null;
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function money(v){return v==null?'—':'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2});}
+function pct(v){return v==null?'—':Number(v).toFixed(2)+'%';}
+
+function searchFunds(){
+  const q=document.getElementById('q').value.trim();
+  if(q.length<2)return;
+  document.getElementById('results').innerHTML='<p class="muted">Searching…</p>';
+  google.script.run.withSuccessHandler(showResults).withFailureHandler(showError).searchFunds(q);
+}
+function showResults(rows){
+  if(!rows.length){document.getElementById('results').innerHTML='<p class="muted">No schemes found.</p>';return;}
+  document.getElementById('results').innerHTML=rows.slice(0,20).map(r=>{
+    const code=r.schemeCode||r.scheme_code||r.code||'';
+    const name=r.schemeName||r.scheme_name||r.name||'';
+    return `<button onclick="selectFund('${esc(code)}','${esc(name)}')">${esc(name)}<br><span class="small">${esc(code)}</span></button>`;
+  }).join('');
+}
+function selectFund(code,name){
+  selected={code,name};
+  document.getElementById('selected').innerHTML=`<div class="metric">${esc(name)}</div><div class="muted">Scheme code: ${esc(code)}</div>`;
+  google.script.run.withSuccessHandler(renderData).withFailureHandler(showError).syncScheme(code);
+}
+function renderData(result){
+  selected.meta=result.meta||{};
+  selected.metrics=result.metrics||{};
+  selected.points=result.points||[];
+  document.getElementById('selected').innerHTML += `<p>${esc(selected.meta.fund_house||'')}</p><p>${esc(selected.meta.scheme_category||'')}</p>`;
+  const m=selected.metrics;
+  document.getElementById('metrics').innerHTML=[
+    ['Latest NAV',money(m.latest_nav)],['1M',pct(m.return_1m)],
+    ['3M',pct(m.return_3m)],['6M',pct(m.return_6m)],
+    ['1Y',pct(m.return_1y)],['3Y CAGR',pct(m.cagr_3y)],
+    ['5Y CAGR',pct(m.cagr_5y)],['Max Drawdown',pct(m.max_drawdown)],
+    ['SMA20',money(m.sma20)],['SMA50',money(m.sma50)],
+    ['SMA200',money(m.sma200)],['Trend',esc(m.trend)]
+  ].map(x=>`<div class="metricbox"><div class="muted">${x[0]}</div><div class="metric">${x[1]}</div></div>`).join('');
+  drawChart(selected.points);
+}
+function drawChart(points){
+  const c=document.getElementById('chart'),ctx=c.getContext('2d');
+  const w=c.clientWidth||700,h=c.clientHeight||260;
+  const dpr=window.devicePixelRatio||1;c.width=w*dpr;c.height=h*dpr;ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,h);
+  if(!points.length)return;
+  const vals=points.map(p=>Number(p.nav)),min=Math.min(...vals),max=Math.max(...vals);
+  ctx.beginPath();
+  vals.forEach((v,i)=>{const x=12+i*(w-24)/(vals.length-1||1);const y=h-20-(v-min)/(max-min||1)*(h-40);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+  ctx.strokeStyle='#d85cff';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='#9da8c2';ctx.font='12px Arial';ctx.fillText('NAV history — latest 365 points',12,16);
+}
+function syncSelected(){if(!selected)return;alert('Already synchronized when the fund was selected.');}
+function addWatch(){if(!selected)return;google.script.run.withSuccessHandler(()=>alert('Added to watchlist.')).withFailureHandler(showError).addToWatchlist(selected.code,selected.name,'');}
+function runSIP(){
+  if(!selected){alert('Select a fund first.');return;}
+  const amount=Number(document.getElementById('sipAmount').value);
+  google.script.run.withSuccessHandler(r=>{
+    document.getElementById('sipResult').innerHTML=`Months: ${r.months}<br>Invested: ${money(r.invested)}<br>Current value: ${money(r.current_value)}<br>Gain: ${money(r.gain)} (${pct(r.gain_percent)})`;
+  }).withFailureHandler(showError).simulateSIP(selected.code,amount);
+}
+function showError(e){alert(e.message||e);}
+</script>
+</body>
+</html>
